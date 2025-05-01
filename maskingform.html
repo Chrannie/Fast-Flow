@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Masking Decision Flow</title>
+  <style>
+    .section { margin: 1em 0; padding: 1em; border: 1px solid #ccc; }
+    .hidden  { display: none; }
+    label { display: block; margin-top: .5em; }
+  </style>
+</head>
+<body>
+
+  <h2>Isolation / Masking Decision Flow</h2>
+  <form id="maskForm">
+
+    <!-- 1. Outside monitored area? -->
+    <div class="section">
+      <label for="qOutside">
+        1. Movement outside monitored area?
+      </label>
+      <select id="qOutside" required>
+        <option value="">-- choose --</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+
+    <!-- 2. Maskable in software? -->
+    <div id="blockMaskable" class="section hidden">
+      <label for="qMaskable">
+        2. Can masking be applied in the analytical software?
+      </label>
+      <select id="qMaskable" required>
+        <option value="">-- choose --</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+
+    <!-- Action if maskable -->
+    <div id="secMasking" class="section hidden">
+      <strong>Action:</strong> Apply masking on the respective analytical portal.
+      <label for="proofMask">Upload proof of masking:</label>
+      <input type="file" id="proofMask" accept="image/*">
+    </div>
+
+    <!-- 3. Vehicle cause? -->
+    <div id="blockVehicles" class="section hidden">
+      <label for="qVehicles">
+        3. If the cause of trigger is vehicles, can you disable/mask vehicle detection?
+      </label>
+      <select id="qVehicles" required>
+        <option value="">-- choose --</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+
+    <!-- Action for soak test -->
+    <div id="secSoak" class="section hidden">
+      <strong>Action:</strong> Place camera/detector on soak test and review next working day.
+      <label for="soakLog">Upload soak test log:</label>
+      <input type="file" id="soakLog" accept="image/*,.pdf">
+    </div>
+
+    <!-- 4. Pass soak test? -->
+    <div id="blockSoakResult" class="section hidden">
+      <label for="qPassSoak">
+        4. Did the device pass the soak test?
+      </label>
+      <select id="qPassSoak" required>
+        <option value="">-- choose --</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+
+    <!-- Reinstate action -->
+    <div id="secReinstate" class="section hidden">
+      <strong>Action:</strong> Reinstate soaked device(s) (if required) and inform installer.
+    </div>
+
+    <!-- Permanent isolation action -->
+    <div id="secIsolation" class="section hidden">
+      <strong>Action:</strong>
+      Fill out isolation report, send email to installer to inform that detection needs reviewing
+      and testing. Place offending device on permanent test until remedial work is carried out.
+    </div>
+
+    <!-- Final bits -->
+    <div class="section">
+      <label for="comments">Additional comments:</label>
+      <textarea id="comments" rows="3"></textarea>
+
+      <label for="notifyEmail">Notification email:</label>
+      <input type="email" id="notifyEmail" required>
+
+      <button type="submit" style="margin-top:1em;">Submit</button>
+    </div>
+  </form>
+
+  <script>
+    const show = (id) => document.getElementById(id).classList.remove('hidden');
+    const hide = (id) => document.getElementById(id).classList.add('hidden');
+
+    // Whenever a higher‐level answer changes, hide all downstream
+    function resetBelow(...ids) {
+      ids.forEach(hide);
+    }
+
+    document.getElementById('qOutside').addEventListener('change', e => {
+      const v = e.target.value;
+      if (v === 'Yes') {
+        show('blockMaskable');
+        resetBelow('secMasking','blockVehicles','secSoak','blockSoakResult','secReinstate','secIsolation');
+      } else if (v === 'No') {
+        hide('blockMaskable');
+        show('blockVehicles');
+        resetBelow('secMasking','secSoak','blockSoakResult','secReinstate','secIsolation');
+      } else {
+        resetBelow('blockMaskable','secMasking','blockVehicles','secSoak','blockSoakResult','secReinstate','secIsolation');
+      }
+    });
+
+    document.getElementById('qMaskable').addEventListener('change', e => {
+      const v = e.target.value;
+      if (v === 'Yes') {
+        show('secMasking');
+        resetBelow('blockVehicles','secSoak','blockSoakResult','secReinstate','secIsolation');
+      } else {
+        hide('secMasking');
+        show('blockVehicles');
+        resetBelow('secSoak','blockSoakResult','secReinstate','secIsolation');
+      }
+    });
+
+    document.getElementById('qVehicles').addEventListener('change', e => {
+      const v = e.target.value;
+      if (v === 'Yes') {
+        show('secSoak');
+        resetBelow('blockSoakResult','secReinstate','secIsolation');
+      } else {
+        hide('secSoak');
+        show('blockSoakResult');
+        resetBelow('secReinstate','secIsolation');
+      }
+    });
+
+    document.getElementById('qPassSoak').addEventListener('change', e => {
+      const v = e.target.value;
+      if (v === 'Yes') {
+        show('secReinstate');
+        hide('secIsolation');
+      } else if (v === 'No') {
+        hide('secReinstate');
+        show('secIsolation');
+      } else {
+        hide('secReinstate');
+        hide('secIsolation');
+      }
+    });
+
+    // Form submission handler
+    document.getElementById('maskForm').addEventListener('submit', e => {
+      e.preventDefault();
+      // collect all values and do whatever you like here:
+      const data = {
+        outside:  document.getElementById('qOutside').value,
+        maskable: document.getElementById('qMaskable').value,
+        proof:    document.getElementById('proofMask').files[0]?.name,
+        vehicles: document.getElementById('qVehicles').value,
+        soakLog:  document.getElementById('soakLog').files[0]?.name,
+        passSoak: document.getElementById('qPassSoak').value,
+        comments: document.getElementById('comments').value,
+        email:    document.getElementById('notifyEmail').value
+      };
+      console.log('Submission data:', data);
+      alert('Form submitted! (Check console log for data)');
+      // → Here you could POST via fetch() to your own API, or integrate with Zapier, etc.
+    });
+  </script>
+
+</body>
+</html>
